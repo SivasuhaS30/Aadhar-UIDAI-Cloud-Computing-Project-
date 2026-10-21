@@ -175,6 +175,61 @@ A **Scaled-Down, High-Availability Identity Authentication Microservice** that s
 
 ---
 
+### 6.1 Demystifying the Exercise Stack (Architecture Glossary)
+
+Here is what every system, tool, and concept in the practical exercise actually means in plain English:
+
+#### 1. Multi-Region, High-Availability (HA) & Failover
+* **Plain English:** Running copies of your system in two geographically separate places (e.g., Region 1: Mumbai, Region 2: Frankfurt).
+* **High Availability (HA):** A design ensuring the service remains online 99.99% of the time, even if hardware explodes.
+* **Failover:** If Region 1 crashes or loses power, traffic is automatically routed to Region 2 within seconds. Users notice zero interruption.
+
+#### 2. Reverse Proxy & Global Load Balancer (Nginx)
+* **Plain English:** The "traffic cop" standing between users and your backend servers.
+* **How It Works:** All incoming client requests hit the Load Balancer first. It inspects server health and distributes requests evenly across Region 1 and Region 2 using algorithms like Round-Robin or Least Connections.
+* **Reverse Proxy:** It hides internal server IP addresses from the public internet for security.
+
+#### 3. Containerized (Docker)
+* **Plain English:** Packaging your code, libraries, and runtime environment into a standardized, lightweight "software container".
+* **Why Cloud Uses It:** Guarantees that the app runs identically on your laptop, your teammate’s PC, or an AWS Linux VM without dependency conflicts ("it works on my machine" syndrome).
+
+#### 4. Stateless API Service (Node.js / FastAPI / Go)
+* **Plain English:** A web server that does not store any user session history or state in its own internal memory.
+* **Cloud Significance:** Because the server is "stateless", any server instance can handle any incoming request. If traffic increases 10x, you simply launch 10 identical container copies behind the load balancer.
+
+#### 5. In-Memory Distributed Caching (Redis) & Sub-Millisecond Lookups
+* **Plain English:** A specialized database that stores data directly inside ultra-fast **RAM** instead of writing to a mechanical hard drive or SSD.
+* **Why Sub-Millisecond:** Reading from disk takes 5 to 20 milliseconds. Reading from RAM via Redis takes **<1 millisecond**.
+* **Role in Project:** When someone authenticates, we check Redis in 0.5 ms to see if the user ID exists and compare the pre-computed biometric hash, avoiding heavy database queries.
+
+#### 6. Edge-Encrypted Biometric Hashes & OTP Signatures
+* **"Edge":** The physical fingerprint/iris capture device located in the field (e.g., at a ration shop or bank branch).
+* **"Biometric Hash":** A one-way mathematical fingerprint of the biometric scan (e.g., SHA-256 string). Raw fingerprint pictures are never stored or transmitted directly.
+* **Edge-Encryption:** The scanner hardware encrypts the hash using UIDAI’s public key before the data ever leaves the device. If an attacker intercepts the packet in transit, they only see gibberish.
+
+#### 7. Asynchronous Logging & Audit Queue (Redis / RabbitMQ)
+* **Plain English:** A temporary "buffer" or to-do list for non-urgent tasks.
+* **Why It Is Needed:** Recording audit logs (who authenticated, timestamp, IP) directly to a disk database during an 80M/day traffic surge would crash the database.
+* **How It Works:** The API immediately approves the user (<100ms) and pushes an "audit event" into a Redis/RabbitMQ queue. Dedicated background worker processes read from the queue and write logs at their own pace without slowing down the user.
+
+#### 8. Load Testing (k6 / Locust)
+* **Plain English:** Developer tools that simulate thousands of simultaneous virtual users bombarding your API to see where it slows down or crashes.
+* **Our Goal:** Determine how many simultaneous authentications our scaled-down system can sustain before response times degrade.
+
+#### 9. Latency Percentiles (p50, p95, p99) vs. Throughput (RPS)
+* **Throughput (RPS):** **Requests Per Second** — the raw volume of requests your server successfully handles each second (e.g., 2,500 RPS).
+* **p50 (Median Latency):** 50% of requests are faster than this number (e.g., 25 ms).
+* **p95:** 95% of requests are faster than this number (e.g., 80 ms).
+* **p99 (Tail Latency):** 99% of requests are faster than this number; only 1% are slower. In cloud engineering, **p99 is the gold standard metric** because it catches worst-case bottlenecks.
+
+#### 10. Auto-Scaling Behavior under Traffic Spikes
+* **Plain English:** Cloud infrastructure automatically spinning up new server containers when CPU usage crosses a threshold (e.g., >70%), and tearing them down when traffic subsides to save money.
+
+#### 11. Empirical Cloud Cost Model
+* **Plain English:** Calculating the real-world operational dollar cost to run this architecture on a cloud provider (e.g., AWS / GCP) per 100,000 transactions based on CPU, RAM, bandwidth, and cache instance pricing.
+
+---
+
 ## 7. Viva Rapid Revision Cheat-Sheet
 
 * **Q: Why was private cloud chosen over public cloud?**  
