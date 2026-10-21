@@ -85,6 +85,139 @@ No single database handles both petabyte-scale biometric images and millisecond 
 
 ---
 
+## 3.1 End-to-End System Workflows: How UIDAI Works in Reality
+
+To explain how the UIDAI platform functions, you must understand its two distinct operational workflows:
+1. **The 1:N Enrollment Workflow** (How an Aadhaar number is born).
+2. **The 1:1 Authentication Workflow** (How an Aadhaar is verified in real-time).
+
+---
+
+### Workflow A: The 1:N Enrollment Pipeline (Batch Deduplication)
+* **Goal:** Ensure a new applicant does not already have an existing Aadhaar number under a fake name.
+
+```text
+[ Citizen at Enrollment Camp ]
+       │  (Captures: 10 Fingerprints + 2 Irises + Facial Photo + Demographics)
+       ▼
+[ Enrollment Client PC (Edge Device) ]
+       │  1. Runs local quality checks on captured biometrics.
+       │  2. Bundles data into an immutable "Enrollment Packet".
+       │  3. Encrypts packet using UIDAI's 2048-bit Public Key.
+       ▼
+[ Secure Ingestion Gateway (Reverse Proxy / DMZ) ]
+       │  Receives uploaded packet over HTTPS/SFTP; verifies cryptographic signatures.
+       ▼
+[ Distributed File System: Hadoop HDFS (Landing Store) ]
+       │  Stores raw, encrypted biometric packet redundantly across commodity storage nodes.
+       ▼
+[ Message Broker: RabbitMQ / Kafka Queue ]
+       │  Pushes a new processing task to prevent ingestion traffic spikes from choking the database.
+       ▼
+[ Worker Compute Nodes (Stateless Pre-Processing) ]
+       │  1. Unpacks demographic data and writes index to relational database (MySQL).
+       │  2. Converts raw biometric images into mathematical biometric feature templates (ISO standards).
+       ▼
+[ ABIS Compute Farm (Automated Biometric Identification System) ]
+       │  Parallel 1:N Search: Compares new biometric vectors against all 1.4 Billion enrolled records.
+       │  Runs 3 proprietary algorithms (Morpho, L1, 3M Cogent) concurrently to ensure zero false matches.
+       ▼
+  ┌────┴───────────────────────────────────────┐
+  ▼                                            ▼
+[ MATCH FOUND (Duplicate) ]           [ NO MATCH (Unique Citizen) ]
+  │                                            │
+  ▼                                            ▼
+Application rejected;                 1. Generate 12-digit Aadhaar UID via Verhoeff Algorithm.
+Flagged as fraud attempt.             2. Write metadata to MySQL; write biometric templates to HBase.
+                                      3. Trigger automated printing and postal dispatch queue.
+```
+
+---
+
+### Workflow B: The 1:1 Real-Time Authentication Pipeline (Sub-200ms)
+* **Goal:** Verify an existing identity at a bank, telecom shop, or ration store in less than 200 milliseconds.
+
+```text
+[ Citizen Scans Finger / Iris / Face at Shop ]
+       │
+       ▼
+[ Biometric Scanner (Registered Device - Edge Hardware) ]
+       │  1. Scanner firmware converts biometric capture into a mathematical minutiae hash.
+       │  2. Encrypts hash inside device chip using UIDAI Public Key with session salt.
+       │  3. Plain biometric image NEVER touches host PC or open internet.
+       ▼
+[ AUA / ASA Partner Gateway ]
+       │  (AUA: Bank/Telecom system; ASA: Secure network pipe connecting to UIDAI via leased lines).
+       ▼
+[ Global DNS / Anycast Routing ]
+       │  Directs the request to the nearest healthy Data Center: Hebbal (Bengaluru) or Manesar (Gurugram).
+       ▼
+[ Hardware Load Balancer / Nginx Reverse Proxy ]
+       │  Terminates SSL, monitors backend server health, and distributes requests evenly.
+       ▼
+[ Stateless Authentication Microservices (Spring / Java / Go) ]
+       │  Receives request payload: { Aadhaar ID + Encrypted Biometric PID Block }.
+       │
+       ├───> [ Hardware Security Module (HSM) ]
+       │     Decrypts the biometric payload inside physical tamper-proof hardware.
+       │
+       ├───> [ In-Memory Cache (Redis) ]
+       │     Instant check (<1 ms): Is this Aadhaar active? Is biometric lock enabled?
+       │
+       ├───> [ Distributed NoSQL Key-Value Store (Apache HBase / Cassandra) ]
+       │     Fetches ONLY that specific citizen's stored biometric template (1:1 direct lookup).
+       │
+       ├───> [ Local 1:1 Matcher Engine ]
+       │     Compares incoming hash with stored template. Score >= Threshold?
+       │
+       └───> [ Output Generator ]
+             Returns a pure Boolean: <auth_status = "Y"> or <auth_status = "N">.
+             (NEVER returns citizen's name, photo, or biometric vectors!)
+       │
+       ▼
+[ Asynchronous Message Queue (Kafka / RabbitMQ) ]
+       │  Pushes transaction event for non-blocking audit logging, fraud analytics, and billing.
+       ▼
+[ Edge Device Displays: "Authentication Successful" (<200 ms total elapsed time) ]
+```
+
+---
+
+### Cloud Computing Architecture Terms Used in These Workflows
+
+1. **Edge Device (Registered Device):**
+   * *What it is:* A physical device located at the user interface point (e.g., portable fingerprint scanner).
+   * *Cloud Role:* Performs initial capture, feature extraction, and encryption locally before transmitting data to the cloud, reducing bandwidth usage and protecting privacy.
+2. **API Gateway / AUA-ASA Layer:**
+   * *What it is:* The single entry door into the cloud platform.
+   * *Cloud Role:* Validates client authentication certificates, enforces rate limiting, and routes legitimate traffic to internal services while blocking cyber attacks.
+3. **Hardware Security Module (HSM):**
+   * *What it is:* A specialized, physically tamper-resistant cryptographic computer chip.
+   * *Cloud Role:* Stores master private keys and decrypts incoming sensitive biometric tokens. Keys can never be extracted or read into regular server RAM.
+4. **Anycast / Global DNS Routing:**
+   * *What it is:* Network routing mechanism directing users to the closest data center.
+   * *Cloud Role:* Routes southern Indian traffic to Bengaluru (Hebbal) and northern traffic to Haryana (Manesar), slashing network round-trip latency.
+5. **Load Balancer (Nginx / F5):**
+   * *What it is:* An intelligent traffic dispatcher.
+   * *Cloud Role:* Sits in front of hundreds of identical API servers to distribute traffic evenly so no single instance runs out of CPU or memory.
+6. **Stateless Microservices:**
+   * *What it is:* Server programs that process each incoming request independently without remembering previous interactions in local memory.
+   * *Cloud Role:* Enables frictionless horizontal autoscaling; you can add 50 new server instances during morning peak hours and delete them at night.
+7. **Distributed Key-Value Store (HBase / Cassandra):**
+   * *What it is:* A NoSQL database partitioned across hundreds of commodity servers.
+   * *Cloud Role:* Delivers predictable, single-digit millisecond lookups when fetching an individual's biometric template by their Aadhaar key out of 1.4 billion rows.
+8. **Distributed File System (Hadoop HDFS):**
+   * *What it is:* A storage architecture that breaks massive files into blocks and replicates them across clusters of inexpensive hard drives.
+   * *Cloud Role:* Serves as the cold landing repository for raw, immutable enrollment packages at petabyte scale.
+9. **Asynchronous Message Broker (RabbitMQ / Kafka):**
+   * *What it is:* A high-throughput distributed message queue.
+   * *Cloud Role:* Decouples fast operations (telling the user "Approved" in 150 ms) from slow operations (writing permanent audit logs to disk databases).
+10. **Active-Active Geo-Redundancy:**
+    * *What it is:* Operating two complete data centers in different states simultaneously handling live traffic.
+    * *Cloud Role:* Guarantees zero downtime. If an entire data center loses connectivity, the other instantly processes all national traffic.
+
+---
+
 ## 4. Week 1 Recap (What Has Been Completed)
 
 ### Deliverables Completed
