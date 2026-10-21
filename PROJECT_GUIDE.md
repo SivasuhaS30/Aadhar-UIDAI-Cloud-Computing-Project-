@@ -218,6 +218,94 @@ Flagged as fraud attempt.             2. Write metadata to MySQL; write biometri
 
 ---
 
+## 3.2 Demystifying the Case Study Salient Points (Concepts & Terms Glossary)
+
+Here is a plain-English breakdown of every term and concept from **Point 2 of the Week 1 Summary** (Problem Statement, Distributed Cloud Architecture, and Socioeconomic Outcomes):
+
+---
+
+### Part 1: Problem Statement & National Scale Terms
+
+#### 1. Foundational Digital ID System
+* **Plain English:** A universal digital identity layer that serves as the root ID for all public and private services (banking, mobile SIMs, rations, pensions).
+* **Why "Foundational":** Rather than having separate IDs for health, tax, and food, Aadhaar provides a single verifiable identity number that all other databases link to.
+
+#### 2. 1:N Deduplication vs. 1:1 Authentication
+* **1:N Deduplication (Identification):** Answers *"Who are you?"* by comparing one new biometric against all $N$ (1.4 billion) enrolled residents to ensure this person does not already exist under another name.
+* **1:1 Authentication (Verification):** Answers *"Are you really who you claim to be?"* by taking an Aadhaar number and a fingerprint/OTP, checking only that specific person's stored record.
+
+#### 3. Biometric Feature Vectors & Trillions of Comparisons
+* **Biometric Feature Vector:** A compressed mathematical coordinate list representing the unique minutiae points of a fingerprint or the texture patterns of an iris. Raw photos are never compared directly.
+* **Trillions of Comparisons:** When a single applicant enrolls with 10 fingers and 2 irises, matching those 12 biometric vectors against 1.4 billion people generates trillions of mathematical vector comparisons.
+
+#### 4. Ghost Identities
+* **Plain English:** Fake, duplicate, or deceased identity profiles created by corrupt intermediaries to siphon welfare money and food rations meant for the poor.
+* **How Aadhaar Solves It:** Because human biometrics cannot be duplicated, one real person can only obtain one unique Aadhaar number.
+
+#### 5. e-KYC, Biometric Auth, and OTP
+* **Biometric Auth:** Verifying identity using physical body characteristics (fingerprint, iris, face) via a registered scanner.
+* **OTP (One-Time Password):** Sending a temporary 6-digit code via SMS to the resident’s linked mobile phone for 2-factor authentication.
+* **e-KYC (Electronic Know Your Customer):** Instantly and electronically sharing verified demographic data (name, address, date of birth, photo) with banks or telcos, eliminating paper photocopying and physical verification delays.
+
+#### 6. Sub-Second Verification (<200 ms) over Erratic Networks
+* **The Engineering Challenge:** Executing edge encryption, wide-area network routing, database lookup, and biometric template matching in less than 200 ms, even when client devices in remote rural villages operate on weak 2G/3G connections.
+
+---
+
+### Part 2: Distributed Cloud & Data-Center Architecture Terms
+
+#### 1. Commodity Linux Servers vs. Proprietary Vendor Lock-In
+* **Vendor Lock-In:** Being trapped into buying expensive, proprietary hardware and licenses (e.g., IBM mainframes, Oracle database appliances) where software only runs on that specific vendor's machines.
+* **Commodity Linux Servers:** Inexpensive, standard x86 server hardware running open-source Linux. UIDAI avoided lock-in by designing software that can run on any hardware from any supplier.
+
+#### 2. Dual Active-Active Sites (PDC Hebbal & DRC Manesar)
+* **Active-Passive (Old Way):** Data Center B sits 100% idle as a backup, waiting for Data Center A to fail (wasting 50% of purchased computing power).
+* **Active-Active (Aadhaar’s Way):** Both data centers process real production traffic 24 hours a day simultaneously. If either data center goes down, the other automatically absorbs 100% of national load without human intervention.
+
+#### 3. Tiered Distributed Storage Architecture
+No single database handles both petabytes of images and millisecond transaction lookups. Data is segmented by speed and access frequency:
+* **Hadoop HDFS (Cold Storage):** Distributed file system storing raw, immutable biometric enrollment packets cheaply across thousands of commodity disks.
+* **HBase & Cassandra (Hot Columnar NoSQL):** Distributed databases that hold indexed biometric feature templates in RAM/SSD for lightning-fast key-value retrieval (<5 ms).
+* **Sharded MySQL (Transactional State):** Relational databases split ("sharded") across multiple servers by citizen ID ranges to handle account statuses, billing, and audit records with strict ACID transactional consistency.
+
+#### 4. Parallel Biometric Search (ABIS) & Multi-Vendor Deduplication
+* **ABIS:** **Automated Biometric Identification System**.
+* **Why Three Vendors (Morpho, L1, 3M Cogent):** No single biometric algorithm is 100% accurate. To prevent a false match or false rejection, UIDAI runs three completely independent vendor algorithms in parallel. A match is only confirmed if the consensus algorithms agree.
+
+#### 5. Zero-Trust Security & Edge Cryptography
+* **Zero-Trust Principle:** *"Never trust, always verify."* No device, network packet, or internal server is trusted by default.
+* **Asymmetric Public-Key Encryption at Capture Devices:** The scanner hardware encrypts the biometric hash using UIDAI’s public key before the data leaves the scanner chip.
+* **Registered Device (RD) Framework:** Scanners possess cryptographic chip certificates. If a hacker intercepts the network wire or tries to inject a pre-recorded fingerprint image ("replay attack"), the packet is rejected.
+* **Hardware Security Modules (HSMs):** Dedicated, tamper-resistant physical cryptographic chips inside the data center. Private decryption keys reside in physical silicon and can never be read into server RAM or stolen by software malware.
+* **Boolean Yes/No Responses (Zero PII Exposure):** The Authentication API responds only with `<auth = "Y">` or `<auth = "N">`. It **never** returns the resident's name, address, or biometric template to the shopkeeper's phone, preventing private data leakage.
+
+---
+
+### Part 3: Financial & Socioeconomic Outcomes Terms
+
+#### 1. Enrollment Unit Cost (<$1 vs. $5–$15 Internationally)
+* **What It Means:** The total taxpayer cost to register one individual (hardware, software, logistics, operator fees).
+* **Significance:** Developed nations spend $5 to $15 per citizen on national biometric IDs due to expensive proprietary licenses. UIDAI achieved **<$1 per person** by adopting open-source software and open hardware specifications.
+
+#### 2. The JAM Trinity (Jan Dhan - Aadhaar - Mobile)
+* **Jan Dhan:** Financial inclusion initiative providing zero-balance bank accounts to unbanked citizens.
+* **Aadhaar:** Universal biometric digital identity enabling instant, paperless account opening.
+* **Mobile:** High-speed telecom connectivity delivering instant transaction alerts and digital payment interfaces.
+
+#### 3. Direct Benefit Transfer (DBT) & Eliminating Middlemen
+* **The Old System:** The government sent physical cash, food grain, and kerosene subsidies through tiers of bureaucratic intermediaries, resulting in rampant leakage and theft.
+* **Direct Benefit Transfer (DBT):** The government transfers welfare money directly into the beneficiary's Aadhaar-linked bank account electronically.
+* **Outcome:** Eliminating duplicate and ghost accounts saved the Indian government an estimated **billions of dollars** in wasted subsidies.
+
+#### 4. The Presenceless Layer of India Stack
+India Stack is a 4-layered public digital architecture:
+1. **Presenceless Layer (Aadhaar):** Verify your identity digitally from anywhere without physical travel.
+2. **Paperless Layer (DigiLocker / e-Sign):** Access and sign legally valid digital documents without paper copies.
+3. **Cashless Layer (UPI):** Transfer money instantly between any bank accounts with zero friction.
+4. **Consent Layer (Account Aggregator):** Securely share personal financial data with third parties under user-controlled digital consent.
+
+---
+
 ## 4. Week 1 Recap (What Has Been Completed)
 
 ### Deliverables Completed
