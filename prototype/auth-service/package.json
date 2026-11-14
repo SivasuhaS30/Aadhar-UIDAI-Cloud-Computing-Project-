@@ -1,0 +1,15 @@
+{
+  "name": "aadhaar-auth-service",
+  "version": "1.0.0",
+  "description": "Scaled-down stateless 1:1 Aadhaar OTP authentication microservice",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "ioredis": "^5.4.1"
+  }
+}

@@ -20,3 +20,16 @@ page_preview*.png
 # OS specific files
 .DS_Store
 Thumbs.db
+
+# Node.js / Prototype
+node_modules/
+npm-debug.log*
+.npm/
+
+# Environment & secrets (keep .env*.example tracked)
+.env
+.env.*
+!.env.example
+!.env.production.example
+*.pem
+*.key

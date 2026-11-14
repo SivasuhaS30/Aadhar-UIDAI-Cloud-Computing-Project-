@@ -20,18 +20,32 @@ Aadhaar is the world's largest biometric digital identity platform, serving **1.
 ## 📁 Repository Structure
 ```text
 .
-├── Week1_Aadhaar_Case_Study_Summary.docx    # Official Week 1 Milestone (DOCX)
-├── Week1_Aadhaar_Case_Study_Summary.pdf     # Official Week 1 Milestone (1-Page PDF)
-├── create_week1_docx.py                     # Automation script for document generation
-├── papers/                                  # Archived primary research papers & audit reports
+├── Group44.pdf                                # Official Week 1 Milestone (1-Page PDF)
+├── Week1_Aadhaar_Case_Study_Summary.docx      # Official Week 1 Milestone (DOCX)
+├── Group_44_Week2_Aadhaar_Report.pdf          # Official Week 2 10-Page Case Analysis & Exercise Blueprint
+├── create_week1_docx.py                       # Automation script for Week 1 document generation
+├── PROJECT_HANDBOOK.md                        # Crisp concept & implementation study handbook
+├── PROJECT_GUIDE.md                           # Master technical & case-study reference guide
+├── Project_Instructions.md                    # Course instructions & milestones
+├── IT457_Project_ Doc.pdf                     # Official course case study guidelines
+├── IT457 Project Implementation Guide.pdf     # Theme-wise final deliverables & Multi-AZ implementation guide
+├── project_title.txt                          # Assigned topic identifier
+├── papers/                                    # Archived primary research papers & audit reports
 │   ├── UIDAI_Aadhaar_Technology_Architecture_2014.pdf
 │   ├── CAG_Report_24_of_2021_UIDAI_Performance_Audit.pdf
 │   ├── UIDAI_Role_of_Biometric_Technology_in_Aadhaar_Enrolment_2012.pdf
 │   └── Tiwari_et_al_Indias_Aadhaar_Biometric_ID_Structure_Security_Vulnerabilities.pdf
-├── Project_Instructions.md                  # Course instructions & milestones
-├── IT457_Project_ Doc.pdf                   # Official course case study guidelines
-├── project_title.txt                        # Assigned topic identifier
-└── README.md                                # Project documentation
+└── prototype/                                 # Multi-AZ / Multi-Region 1:1 Auth Microservice (Phases 0–4 Ready)
+    ├── auth-service/                          # Stateless Node.js 20 / Express 4 service, `/` UI & test suites
+    ├── nginx/                                 # NGINX 1.25 load balancer & optional TLS config
+    ├── k6/                                    # Grafana k6 load & failover scripts (Scenarios T1–T6)
+    ├── scripts/                               # EC2 Multi-AZ/single deploy, smoke client, chaos monitor & local sims
+    ├── results/                               # Saved test outputs, chaos CSV/JSON timelines & benchmark reports
+    ├── docker-compose.yml                     # Single-host simulated dual-region stack (NGINX + Dual Redis)
+    ├── docker-compose.az.yml                  # Per-AZ EC2 node stack (ap-south-1a / ap-south-1b behind AWS ALB)
+    ├── docker-compose.prod.yml                # Production resource & logging override for AWS EC2 t3.micro
+    ├── docker-compose.tls.yml                 # Optional HTTPS/TLS termination override
+    └── DEPLOYMENT.md                          # AWS Multi-AZ + ALB & Single-VM deployment runbook
 ```
 
 ---
@@ -47,7 +61,7 @@ The following authoritative documents are archived in [`papers/`](./papers):
 
 ## 🗓️ 5-Week Milestone Roadmap
 - [x] **Week 1:** Primary literature survey, architecture extraction, 1-page milestone summary.
-- [ ] **Week 2:** Detailed 10-page architecture analysis, system component diagrams, exercise blueprint, and team role distribution.
-- [ ] **Week 3:** Practical implementation of scaled-down auth microservice; load testing (k6/Locust) measuring latency, scaling behavior, and cost.
-- [ ] **Week 4:** System hardening, live cloud deployment with public URL, final report compilation.
+- [x] **Week 2:** Detailed 10-page architecture analysis ([`Group_44_Week2_Aadhaar_Report.pdf`](./Group_44_Week2_Aadhaar_Report.pdf)), system component diagrams, exercise blueprint, and team role distribution.
+- [ ] **Week 3:** Practical implementation of scaled-down auth microservice (Phases 0–3 implemented & locally verified in [`prototype/`](./prototype)); live `k6` load testing (T1–T6) measuring latency, scaling behavior, and cost.
+- [ ] **Week 4:** Live cloud deployment on AWS EC2 with public URL ([`prototype/DEPLOYMENT.md`](./prototype/DEPLOYMENT.md)), empirical benchmark results compilation, and final report.
 - [ ] **Week 5:** Project VIVA defense.
