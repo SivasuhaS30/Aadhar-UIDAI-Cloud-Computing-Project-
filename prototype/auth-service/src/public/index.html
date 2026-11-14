@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aadhaar (UIDAI) 1:1 Auth Microservice — Multi-AZ Live Status</title>
+  <style>
+    :root {
+      --bg: #0b1120;
+      --surface: #111827;
+      --surface-alt: #1e293b;
+      --border: #334155;
+      --text: #f8fafc;
+      --muted: #94a3b8;
+      --accent: #38bdf8;
+      --green: #22c55e;
+      --amber: #f59e0b;
+      --red: #ef4444;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      padding: 2rem 1rem 4rem;
+    }
+    .container { max-width: 1100px; margin: 0 auto; }
+    header {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 1rem;
+      padding-bottom: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.75rem;
+    }
+    .eyebrow {
+      font-size: 0.78rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+    }
+    h1 { font-size: 1.65rem; font-weight: 700; }
+    .subtitle { color: var(--muted); font-size: 0.95rem; margin-top: 0.25rem; }
+    .actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+    .btn {
+      background: var(--accent);
+      color: #082f49;
+      border: none;
+      padding: 0.6rem 1.1rem;
+      border-radius: 0.5rem;
+      font-weight: 600;
+      cursor: pointer;
+      font-size: 0.9rem;
+    }
+    .btn-secondary {
+      background: var(--surface-alt);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-active {
+      background: var(--green);
+      color: #052e16;
+    }
+    .btn:hover { opacity: 0.9; }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.75rem;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 1.25rem;
+    }
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.85rem;
+      gap: 0.5rem;
+    }
+    .card-title { font-size: 1rem; font-weight: 600; }
+    .badge {
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.55rem;
+      border-radius: 999px;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+    .badge-up { background: rgba(34, 197, 94, 0.16); color: var(--green); }
+    .badge-warn { background: rgba(245, 158, 11, 0.16); color: var(--amber); }
+    .badge-down { background: rgba(239, 68, 68, 0.16); color: var(--red); }
+    .kv {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.88rem;
+      padding: 0.32rem 0;
+      border-bottom: 1px solid rgba(51, 65, 85, 0.45);
+      gap: 0.75rem;
+    }
+    .kv:last-child { border-bottom: none; }
+    .kv span:first-child { color: var(--muted); }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.84rem; }
+    .section { margin-bottom: 1.75rem; }
+    .section h2 { font-size: 1.15rem; margin-bottom: 0.85rem; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 0.75rem;
+      overflow: hidden;
+      font-size: 0.88rem;
+    }
+    th, td { padding: 0.75rem 1rem; text-align: left; border-bottom: 1px solid var(--border); }
+    th { background: var(--surface-alt); color: var(--muted); font-weight: 600; }
+    tr:last-child td { border-bottom: none; }
+    pre {
+      background: #020617;
+      border: 1px solid var(--border);
+      border-radius: 0.6rem;
+      padding: 1rem;
+      overflow-x: auto;
+      font-size: 0.83rem;
+      color: #e2e8f0;
+    }
+    .pill-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.6rem; }
+    .probe-pill {
+      padding: 0.3rem 0.65rem;
+      border-radius: 0.4rem;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      font-size: 0.8rem;
+    }
+    .probe-pill-ok { border-color: rgba(34, 197, 94, 0.45); }
+    .probe-pill-err { border-color: rgba(239, 68, 68, 0.6); color: var(--red); }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <div class="eyebrow">IT457 Cloud Computing &middot; Group 44 &middot; UIDAI Multi-AZ Prototype</div>
+        <h1>Aadhaar 1:1 Real-Time Authentication Service</h1>
+        <p class="subtitle">Multi-Zone High-Availability Stateless Microservice &middot; Load Balancer + Dual-Zone Redis Replication</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="refreshBtn" type="button">Probe Load Balancer (6x)</button>
+        <button class="btn btn-secondary" id="chaosBtn" type="button">Start Live Chaos Probe (1s)</button>
+      </div>
+    </header>
+
+    <div class="grid" id="cardsGrid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Load Balancer / Ingress</span>
+          <span class="badge badge-warn" id="lbBadge">Checking</span>
+        </div>
+        <div class="kv"><span>Ingress Mode</span><span class="mono" id="lbComp">-</span></div>
+        <div class="kv"><span>Probes (OK / Err)</span><span class="mono" id="probeStats">0 / 0</span></div>
+        <div class="kv"><span>Active Zones Seen</span><span class="mono" id="zonesSeen">-</span></div>
+        <div class="kv"><span>Last Probe</span><span class="mono" id="lastProbe">-</span></div>
+      </div>
+      <div class="card" id="placeholderCard">
+        <div class="card-header">
+          <span class="card-title">Discovering Active Zones...</span>
+          <span class="badge badge-warn">Probing</span>
+        </div>
+        <div class="kv"><span>Status</span><span class="mono">Waiting for /health responses</span></div>
+      </div>
+    </div>
+
+    <div class="card section">
+      <div class="card-header">
+        <span class="card-title">Live Request Routing Sequence (<span class="mono">GET /health</span>)</span>
+      </div>
+      <div class="pill-row" id="probeSequence"></div>
+    </div>
+
+    <div class="section">
+      <h2>Service API Endpoints &amp; Zero-Trust Security Controls</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Endpoint</th>
+            <th>Auth Requirement</th>
+            <th>Behavior &amp; Cloud Principle</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="mono">GET /health</td>
+            <td>Public</td>
+            <td>Load-balanced microservice &amp; ALB target health check reporting AZ/region, Redis state &amp; replication role.</td>
+          </tr>
+          <tr>
+            <td class="mono">POST /auth/otp/generate</td>
+            <td>HMAC-SHA256 + Timestamp (&plusmn;60s)</td>
+            <td>Verhoeff 12-digit UID check, 6-digit CSPRNG OTP hashed (SHA-256) in Redis with 300s TTL, replay lock (<span class="mono">SET NX EX 60</span>).</td>
+          </tr>
+          <tr>
+            <td class="mono">POST /auth/verify</td>
+            <td>HMAC-SHA256 + Timestamp (&plusmn;60s)</td>
+            <td>Atomic single-use <span class="mono">GETDEL</span> verification, constant-time match, signed <span class="mono">authStatus: Y/N</span> + random-IV <span class="mono">AES-256-GCM</span> assertion.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="section">
+      <h2>CLI Chaos / Failover Monitor &amp; End-to-End Verification</h2>
+      <pre>node prototype/scripts/test-client.js http://&lt;LOAD_BALANCER_URL&gt;
+node prototype/scripts/chaos-monitor.js --url http://&lt;LOAD_BALANCER_URL&gt;</pre>
+    </div>
+  </div>
+
+  <script>
+    const zones = new Map();
+    const recentProbes = [];
+    let okCount = 0;
+    let errCount = 0;
+    let chaosTimer = null;
+    let probeSeq = 0;
+
+    function setBadge(el, text, cls) {
+      el.textContent = text;
+      el.className = 'badge ' + cls;
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    function renderZoneCards() {
+      const grid = document.getElementById('cardsGrid');
+      const placeholder = document.getElementById('placeholderCard');
+      if (placeholder && zones.size > 0) {
+        placeholder.remove();
+      }
+
+      const now = Date.now();
+      for (const [regionKey, info] of zones.entries()) {
+        let card = document.getElementById('zone-card-' + regionKey);
+        if (!card) {
+          card = document.createElement('div');
+          card.className = 'card';
+          card.id = 'zone-card-' + regionKey;
+          grid.appendChild(card);
+        }
+
+        const ageSec = Math.round((now - info.lastSeenAt) / 1000);
+        const stale = ageSec > 10;
+        const payload = info.payload;
+        const rep = payload.replication || {};
+        const roleText = rep.promoted
+          ? (rep.role || 'master') + ' (auto-promoted)'
+          : (rep.role || '-') + (rep.masterLinkStatus ? ' / link:' + rep.masterLinkStatus : '');
+
+        const badgeClass = stale
+          ? 'badge-down'
+          : payload.status === 'UP'
+          ? 'badge-up'
+          : 'badge-warn';
+        const badgeLabel = stale ? 'Offline (' + ageSec + 's)' : (payload.status || 'UP');
+
+        card.innerHTML =
+          '<div class="card-header">' +
+          '<span class="card-title">Zone / Region &middot; ' + escapeHtml(regionKey) + '</span>' +
+          '<span class="badge ' + badgeClass + '">' + escapeHtml(badgeLabel) + '</span>' +
+          '</div>' +
+          '<div class="kv"><span>Instance ID</span><span class="mono">' + escapeHtml(payload.instanceId || '-') + '</span></div>' +
+          '<div class="kv"><span>Redis Status</span><span class="mono">' + escapeHtml(payload.redis || '-') + '</span></div>' +
+          '<div class="kv"><span>Replication Role</span><span class="mono">' + escapeHtml(roleText) + '</span></div>' +
+          '<div class="kv"><span>Hits / Uptime</span><span class="mono">' +
+          info.hits + ' hits &middot; ' + (typeof payload.uptimeSec === 'number' ? payload.uptimeSec + 's' : '-') +
+          '</span></div>';
+      }
+
+      document.getElementById('probeStats').textContent = okCount + ' / ' + errCount;
+      document.getElementById('zonesSeen').textContent = zones.size ? Array.from(zones.keys()).join(', ') : '-';
+    }
+
+    function pushPill(label, isOk) {
+      recentProbes.push({ label, isOk });
+      if (recentProbes.length > 18) recentProbes.shift();
+      const seqEl = document.getElementById('probeSequence');
+      seqEl.innerHTML = '';
+      for (const item of recentProbes) {
+        const pill = document.createElement('span');
+        pill.className = 'probe-pill mono ' + (item.isOk ? 'probe-pill-ok' : 'probe-pill-err');
+        pill.textContent = item.label;
+        seqEl.appendChild(pill);
+      }
+    }
+
+    async function checkIngressType() {
+      try {
+        const lbRes = await fetch('/nginx-health', { cache: 'no-store' });
+        if (lbRes.ok) {
+          const lbData = await lbRes.json();
+          setBadge(document.getElementById('lbBadge'), lbData.status || 'UP', 'badge-up');
+          document.getElementById('lbComp').textContent = lbData.component || 'nginx-load-balancer';
+          return;
+        }
+      } catch {
+        // Fall through to ALB/direct mode
+      }
+      document.getElementById('lbComp').textContent = 'AWS ALB / Direct Target';
+    }
+
+    async function probeOnce() {
+      probeSeq += 1;
+      document.getElementById('lastProbe').textContent = new Date().toLocaleTimeString();
+      const t0 = performance.now();
+      try {
+        const res = await fetch('/health', { cache: 'no-store' });
+        const data = await res.json();
+        const ms = Math.round(performance.now() - t0);
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+
+        okCount += 1;
+        setBadge(document.getElementById('lbBadge'), 'UP', 'badge-up');
+
+        const regionKey = data.region || 'unknown';
+        const existing = zones.get(regionKey) || { hits: 0 };
+        zones.set(regionKey, {
+          payload: data,
+          hits: existing.hits + 1,
+          lastSeenAt: Date.now(),
+        });
+
+        pushPill('#' + probeSeq + ' ' + regionKey + ' (' + ms + ' ms)', true);
+      } catch {
+        errCount += 1;
+        pushPill('#' + probeSeq + ' error', false);
+      }
+      renderZoneCards();
+    }
+
+    async function probeBurst() {
+      await checkIngressType();
+      for (let i = 0; i < 6; i += 1) {
+        await probeOnce();
+      }
+    }
+
+    document.getElementById('refreshBtn').addEventListener('click', probeBurst);
+    document.getElementById('chaosBtn').addEventListener('click', () => {
+      const btn = document.getElementById('chaosBtn');
+      if (chaosTimer) {
+        clearInterval(chaosTimer);
+        chaosTimer = null;
+        btn.textContent = 'Start Live Chaos Probe (1s)';
+        btn.className = 'btn btn-secondary';
+      } else {
+        probeOnce();
+        chaosTimer = setInterval(probeOnce, 1000);
+        btn.textContent = 'Stop Live Chaos Probe';
+        btn.className = 'btn btn-active';
+      }
+    });
+
+    probeBurst();
+  </script>
+</body>
+</html>

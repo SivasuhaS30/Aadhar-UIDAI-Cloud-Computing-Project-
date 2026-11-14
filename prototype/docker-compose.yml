@@ -1,0 +1,163 @@
+services:
+  # =========================================================================
+  # Phase 3 Region 1 Primary Redis Cache (Simulated Mumbai / ap-south-1)
+  # =========================================================================
+  redis_region1:
+    image: redis:7-alpine
+    container_name: aadhaar_redis_region1
+    command:
+      [
+        "redis-server",
+        "--save", "",
+        "--appendonly", "no",
+        "--maxmemory", "128mb",
+        "--maxmemory-policy", "volatile-ttl"
+      ]
+    networks:
+      - region1_net
+      - replication_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # =========================================================================
+  # Phase 3 Region 2 Replica Redis Cache (Simulated Hyderabad / ap-south-2)
+  # Continuously replicates from redis_region1; auto-promotes on Region 1 outage
+  # =========================================================================
+  redis_region2:
+    image: redis:7-alpine
+    container_name: aadhaar_redis_region2
+    command:
+      [
+        "redis-server",
+        "--save", "",
+        "--appendonly", "no",
+        "--maxmemory", "128mb",
+        "--maxmemory-policy", "volatile-ttl",
+        "--replicaof", "redis_region1", "6379",
+        "--replica-read-only", "yes"
+      ]
+    depends_on:
+      redis_region1:
+        condition: service_healthy
+    networks:
+      - region2_net
+      - replication_net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # =========================================================================
+  # Region 1 Compute Cluster (Simulated Mumbai / ap-south-1)
+  # Omit container_name so `docker compose up -d --scale region1_auth=3` works (T2)
+  # =========================================================================
+  region1_auth:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+      REGION: mumbai
+      CACHE_DRIVER: redis
+      REDIS_URL: redis://redis_region1:6379
+      REDIS_PRIMARY_URL: redis://redis_region1:6379
+      REDIS_WAIT_REPLICAS: ${REDIS_WAIT_REPLICAS:-0}
+      REDIS_WAIT_TIMEOUT_MS: ${REDIS_WAIT_TIMEOUT_MS:-50}
+      HMAC_SECRET: ${HMAC_SECRET:-aadhaar-prototype-aua-hmac-secret-2026}
+      AES_KEY: ${AES_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      REQUIRE_HMAC: ${REQUIRE_HMAC:-true}
+      DEMO_RETURN_OTP: ${DEMO_RETURN_OTP:-true}
+      OTP_TTL_SEC: ${OTP_TTL_SEC:-300}
+      REPLAY_TTL_SEC: ${REPLAY_TTL_SEC:-60}
+      LOG_MOCK_SMS: ${LOG_MOCK_SMS:-true}
+    depends_on:
+      redis_region1:
+        condition: service_healthy
+    networks:
+      - region1_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # =========================================================================
+  # Region 2 Compute Cluster (Simulated Hyderabad / ap-south-2)
+  # Connects to local replica for telemetry/failover and primary for writes
+  # =========================================================================
+  region2_auth:
+    build:
+      context: ./auth-service
+      dockerfile: Dockerfile
+    environment:
+      PORT: 3000
+      REGION: hyderabad
+      CACHE_DRIVER: redis
+      REDIS_URL: redis://redis_region2:6379
+      REDIS_PRIMARY_URL: redis://redis_region1:6379
+      REDIS_AUTO_PROMOTE: "true"
+      REDIS_WAIT_REPLICAS: ${REDIS_WAIT_REPLICAS:-0}
+      REDIS_WAIT_TIMEOUT_MS: ${REDIS_WAIT_TIMEOUT_MS:-50}
+      HMAC_SECRET: ${HMAC_SECRET:-aadhaar-prototype-aua-hmac-secret-2026}
+      AES_KEY: ${AES_KEY:-0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef}
+      REQUIRE_HMAC: ${REQUIRE_HMAC:-true}
+      DEMO_RETURN_OTP: ${DEMO_RETURN_OTP:-true}
+      OTP_TTL_SEC: ${OTP_TTL_SEC:-300}
+      REPLAY_TTL_SEC: ${REPLAY_TTL_SEC:-60}
+      LOG_MOCK_SMS: ${LOG_MOCK_SMS:-true}
+    depends_on:
+      redis_region1:
+        condition: service_healthy
+      redis_region2:
+        condition: service_healthy
+    networks:
+      - region2_net
+      - replication_net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:3000/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped
+
+  # =========================================================================
+  # Ingress & Reverse Proxy (NGINX 1.25)
+  # Distributes traffic 50/50 and executes passive failover (Test T4)
+  # =========================================================================
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: aadhaar_nginx_lb
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./auth-service/src/public:/usr/share/nginx/html:ro
+    depends_on:
+      region1_auth:
+        condition: service_healthy
+      region2_auth:
+        condition: service_healthy
+    networks:
+      - region1_net
+      - region2_net
+    restart: unless-stopped
+
+# =========================================================================
+# Isolated Virtual Networks Simulating Geographic & Replication Boundaries
+# =========================================================================
+networks:
+  region1_net:
+    driver: bridge
+  region2_net:
+    driver: bridge
+  replication_net:
+    driver: bridge
