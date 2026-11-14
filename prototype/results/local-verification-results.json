@@ -1,0 +1,73 @@
+{
+  "executedAt": "2026-11-14T09:06:40.439Z",
+  "nodeVersion": "v20.20.2",
+  "platform": "win32 x64",
+  "environmentNote": "Local Node.js loopback simulation with stateful Primary->Replica Redis mock (not Docker/AWS EC2)",
+  "smokeChecks": {
+    "region1Health": {
+      "status": "UP",
+      "region": "mumbai",
+      "replication": {
+        "mode": "single-region",
+        "promoted": false,
+        "role": "master",
+        "connectedSlaves": 1,
+        "masterLinkStatus": null,
+        "masterHost": null,
+        "masterPort": null,
+        "replOffset": 100
+      }
+    },
+    "region2HealthBeforeFailover": {
+      "status": "UP",
+      "region": "hyderabad",
+      "replication": {
+        "mode": "dual-region",
+        "promoted": false,
+        "role": "slave",
+        "connectedSlaves": 0,
+        "masterLinkStatus": "up",
+        "masterHost": "redis_region1",
+        "masterPort": 6379,
+        "replOffset": null
+      }
+    },
+    "otpGenerateStatus": 200,
+    "crossRegionReplayStatus": 403,
+    "crossRegionReplayError": "REPLAY_DETECTED",
+    "crossRegionVerifyStatus": 200,
+    "authStatus": "Y",
+    "aesDecryptedAuthStatus": "Y",
+    "primaryOutageFailoverVerifyStatus": 200,
+    "region2HealthAfterFailover": {
+      "status": "UP",
+      "region": "hyderabad",
+      "replication": {
+        "mode": "dual-region",
+        "promoted": true,
+        "role": "master",
+        "connectedSlaves": 0,
+        "masterLinkStatus": null,
+        "masterHost": null,
+        "masterPort": null,
+        "replOffset": 100
+      }
+    },
+    "failoverPreservedOtp": true
+  },
+  "loopbackBenchmark": {
+    "concurrencyVUs": 10,
+    "totalRequests": 500,
+    "successfulRequests": 500,
+    "failedRequests": 0,
+    "durationSec": 0.426,
+    "throughputRps": 1174.7,
+    "latencyMs": {
+      "min": 3.91,
+      "p50": 7.83,
+      "p95": 11.17,
+      "p99": 19.61,
+      "max": 22.65
+    }
+  }
+}

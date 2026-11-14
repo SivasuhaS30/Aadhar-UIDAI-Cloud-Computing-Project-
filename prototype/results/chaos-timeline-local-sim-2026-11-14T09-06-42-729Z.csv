@@ -1,0 +1,13 @@
+seq,timestamp,healthStatus,healthRegion,healthInstanceId,redisRole,promoted,healthLatencyMs,authStatusCode,authResult,authRegion,authLatencyMs,error
+1,2026-11-14T09:06:41.132Z,200,ap-south-1a,az1a-local-sim,master,false,30.1,200,Y,ap-south-1a,21.65,
+2,2026-11-14T09:06:41.319Z,200,ap-south-1b,az1b-local-sim,slave,false,3.75,200,Y,ap-south-1b,5.46,
+3,2026-11-14T09:06:41.459Z,200,ap-south-1a,az1a-local-sim,master,false,1.8,200,Y,ap-south-1a,5.04,
+4,2026-11-14T09:06:41.601Z,200,ap-south-1b,az1b-local-sim,slave,false,2.36,200,Y,ap-south-1b,4.31,
+5,2026-11-14T09:06:41.741Z,200,ap-south-1a,az1a-local-sim,master,false,2.33,200,Y,ap-south-1a,4.49,
+6,2026-11-14T09:06:41.881Z,200,ap-south-1b,az1b-local-sim,slave,false,1.85,200,Y,ap-south-1b,5.25,
+7,2026-11-14T09:06:42.023Z,200,ap-south-1b,az1b-local-sim,master,true,2.47,200,Y,ap-south-1b,4.32,
+8,2026-11-14T09:06:42.161Z,200,ap-south-1b,az1b-local-sim,master,true,4.23,200,Y,ap-south-1b,4.89,
+9,2026-11-14T09:06:42.302Z,200,ap-south-1b,az1b-local-sim,master,true,5.57,200,Y,ap-south-1b,4.48,
+10,2026-11-14T09:06:42.442Z,200,ap-south-1b,az1b-local-sim,master,true,1.42,200,Y,ap-south-1b,3.73,
+11,2026-11-14T09:06:42.583Z,200,ap-south-1b,az1b-local-sim,master,true,2.23,200,Y,ap-south-1b,3.8,
+12,2026-11-14T09:06:42.723Z,200,ap-south-1b,az1b-local-sim,master,true,1.35,200,Y,ap-south-1b,3.61,
