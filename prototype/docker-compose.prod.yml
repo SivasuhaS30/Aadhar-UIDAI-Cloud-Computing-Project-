@@ -1,0 +1,67 @@
+# Production override for AWS EC2 t3.micro (1 vCPU, 1 GiB RAM) live deployment
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+
+services:
+  redis_region1:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  redis_region2:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  region1_auth:
+    restart: always
+    environment:
+      LOG_MOCK_SMS: ${LOG_MOCK_SMS:-false}
+    deploy:
+      resources:
+        limits:
+          memory: 180M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  region2_auth:
+    restart: always
+    environment:
+      LOG_MOCK_SMS: ${LOG_MOCK_SMS:-false}
+    deploy:
+      resources:
+        limits:
+          memory: 180M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  nginx:
+    restart: always
+    deploy:
+      resources:
+        limits:
+          memory: 96M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

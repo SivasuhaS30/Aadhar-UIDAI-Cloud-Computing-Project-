@@ -1,0 +1,13 @@
+# Optional TLS override for custom domain + Let's Encrypt / TLS certificates
+# Place fullchain.pem and privkey.pem in ./nginx/certs (or set TLS_CERTS_DIR)
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml -f docker-compose.tls.yml up -d --build
+
+services:
+  nginx:
+    ports:
+      - "${NGINX_HTTPS_PORT:-443}:443"
+    volumes:
+      - ./nginx/nginx.ssl.conf:/etc/nginx/nginx.conf:ro
+      - ./auth-service/src/public:/usr/share/nginx/html:ro
+      - ${TLS_CERTS_DIR:-./nginx/certs}:/etc/nginx/certs:ro
+
