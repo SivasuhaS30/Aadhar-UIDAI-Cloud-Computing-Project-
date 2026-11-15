@@ -4,6 +4,13 @@
 **Theme:** Government & Public Digital Infrastructure  
 **Topic:** Aadhaar (UIDAI) Biometric ID System, Cloud/Data-Center Architecture at National Scale  
 
+## 🌐 Live Multi-AZ AWS Deployment & Chaos Failover Proof
+
+- **Live Public ALB Endpoint:** [`http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/`](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/) (AWS Sydney `ap-southeast-2a` + `ap-southeast-2b` behind Application Load Balancer `aadhaar-alb`)
+- **Live Health Check:** [`http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/health`](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/health)
+- **Live Multi-AZ Chaos/Failover Video:** [Google Drive Recording (Zone A Outage & Automated `REPLICAOF NO ONE` Promotion)](https://drive.google.com/file/d/1knZ0NuT9ByiJ9Jv9SY7KTEyB0pXB5Xma/view?usp=drive_link)
+- **Empirical Test Results:** [`prototype/results/TEST_RESULTS.md`](./prototype/results/TEST_RESULTS.md)
+
 ---
 
 ## 📌 Project Overview
@@ -23,6 +30,8 @@ Aadhaar is the world's largest biometric digital identity platform, serving **1.
 ├── Group44.pdf                                # Official Week 1 Milestone (1-Page PDF)
 ├── Week1_Aadhaar_Case_Study_Summary.docx      # Official Week 1 Milestone (DOCX)
 ├── Group_44_Week2_Aadhaar_Report.pdf          # Official Week 2 10-Page Case Analysis & Exercise Blueprint
+├── Group_44_Week3_Results_Addon.pdf           # Official Week 3 Experiments, Latency, Scaling & Cost Add-on Report
+├── Group_44_Week4_Final_Report.pdf            # Official Week 4 Final Consolidated Project Report
 ├── create_week1_docx.py                       # Automation script for Week 1 document generation
 ├── PROJECT_HANDBOOK.md                        # Crisp concept & implementation study handbook
 ├── PROJECT_GUIDE.md                           # Master technical & case-study reference guide
@@ -60,8 +69,8 @@ The following authoritative documents are archived in [`papers/`](./papers):
 ---
 
 ## 🗓️ 5-Week Milestone Roadmap
-- [x] **Week 1:** Primary literature survey, architecture extraction, 1-page milestone summary.
+- [x] **Week 1:** Primary literature survey, architecture extraction, 1-page milestone summary ([`Group44.pdf`](./Group44.pdf)).
 - [x] **Week 2:** Detailed 10-page architecture analysis ([`Group_44_Week2_Aadhaar_Report.pdf`](./Group_44_Week2_Aadhaar_Report.pdf)), system component diagrams, exercise blueprint, and team role distribution.
-- [ ] **Week 3:** Practical implementation of scaled-down auth microservice (Phases 0–3 implemented & locally verified in [`prototype/`](./prototype)); live `k6` load testing (T1–T6) measuring latency, scaling behavior, and cost.
-- [ ] **Week 4:** Live cloud deployment on AWS EC2 with public URL ([`prototype/DEPLOYMENT.md`](./prototype/DEPLOYMENT.md)), empirical benchmark results compilation, and final report.
+- [x] **Week 3:** Practical implementation of scaled-down auth microservice in [`prototype/`](./prototype), local verification (`12/12` unit/integration + `1174.7 req/s` loopback benchmark), live AWS Multi-AZ empirical latency/failover experiments, AWS cost analysis, and [`Group_44_Week3_Results_Addon.pdf`](./Group_44_Week3_Results_Addon.pdf).
+- [x] **Week 4:** Live AWS Multi-AZ deployment (`ap-southeast-2a` & `ap-southeast-2b` behind `aadhaar-alb`) at [`http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/`](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/), live Chaos/Failover video proof, and [`Group_44_Week4_Final_Report.pdf`](./Group_44_Week4_Final_Report.pdf).
 - [ ] **Week 5:** Project VIVA defense.
