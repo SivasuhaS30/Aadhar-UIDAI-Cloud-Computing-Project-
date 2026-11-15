@@ -1,6 +1,6 @@
 # Aadhaar 1:1 Auth Microservice — Verification & Test Results
 
-> **Execution Scope Notice:** All results below were executed locally on **Node.js v20.20.2 (`win32 x64`)** using the in-memory store, stateful Primary $\rightarrow$ Replica Redis mock, and local failover reverse proxy (`node --test`, `run-local-verification.js`, and `run-local-chaos-sim.js`). Live AWS Multi-AZ EC2 + ALB chaos demonstrations and `k6` load tests (`T1`–`T6`) remain to be run once hosted on AWS.
+> **Execution Scope Notice:** Sections 1–3 document local verification executed on **Node.js v20.20.2 (`win32 x64`)** using the in-memory store, stateful Primary $\rightarrow$ Replica Redis mock, and local failover reverse proxy (`node --test`, `run-local-verification.js`, and `run-local-chaos-sim.js`). Sections 4–6 document **live AWS Multi-AZ cloud verification** executed on **2 × AWS EC2 `t3.micro` instances (`ap-southeast-2a` & `ap-southeast-2b`) behind AWS Application Load Balancer `aadhaar-alb` (`http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com`)**, including E2E security smoke tests, live Zone A stop Chaos/Failover telemetry (`chaos-monitor.js` + Google Drive video), and real AWS Billing/Cost Explorer metrics. The Grafana `k6` scripts (`T1`–`T6`) in `prototype/k6/` are ready for optional high-VU synthetic load generation against any target URL.
 
 ---
 
@@ -69,14 +69,54 @@
 
 ---
 
-## 4. Pending Live AWS Benchmarks & Chaos Video (After Hosting)
+## 4. Live AWS Multi-AZ Deployment & Functional Smoke Verification
 
-1. Deploy across `ap-south-1a` & `ap-south-1b` behind AWS ALB using [`DEPLOYMENT.md`](../DEPLOYMENT.md), then run the live Chaos/Failover monitor while stopping Zone A in EC2 Console:
-   ```bash
-   node prototype/scripts/chaos-monitor.js --url http://<ALB-DNS-NAME> --hmac-secret <SECRET> --interval-ms 500 --duration-sec 90 --tag aws-alb
-   ```
-2. Run the `k6` benchmark suite (`T1`–`T6`):
-   ```bash
-   cd prototype
-   BASE_URL=http://<HOST_OR_ALB> ./k6/run_benchmarks.sh
-   ```
+- **Deployment Topology (`ap-southeast-2`):**
+  - **Application Load Balancer:** `aadhaar-alb` (`http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/`) spanning `ap-southeast-2a` and `ap-southeast-2b`
+  - **Target Group:** `aadhaar-tg` (`HTTP:80`, `/health`, healthy threshold `2`, unhealthy threshold `2`, timeout `3 s`, interval `5 s`)
+  - **Zone A Primary (`ap-southeast-2a`):** `t3.micro` (`i-0e9c87fbdd47a2b02`, private IP `172.31.3.123`, `REGION=ap-southeast-2a`, Redis `master`)
+  - **Zone B Replica (`ap-southeast-2b`):** `t3.micro` (`i-058e1e4be450ce52c`, private IP `172.31.41.130`, `REGION=ap-southeast-2b`, Redis `slave` replicating from `172.31.3.123:6379`)
+- **Live Browser Load-Balance Probe:** `12 / 0` (`12 OK`, `0 errors`) — `6 hits` routed to `ap-southeast-2a` (`master`) and `6 hits` routed to `ap-southeast-2b` (`slave / link:up`), `276–279 ms` WAN RTT per request from India to AWS Sydney.
+- **Live E2E Security Smoke Test (`node prototype/scripts/test-client.js`):** **`ALL SMOKE CHECKS PASSED!` (`6/6`)**
+  1. `GET /health -> 200` (`ap-southeast-2b`, Redis `connected`, `role: slave`, `masterLinkStatus: up`)
+  2. `POST /auth/otp/generate -> 200` (`ap-southeast-2a`, `OTP_SENT`, `expiresIn: 300`)
+  3. `Replay Attack Test -> 403 REPLAY_DETECTED` (HMAC + nonce window enforcement)
+  4. `POST /auth/verify -> 200` (`authStatus: 'Y'`, signed HMAC + AES-256-GCM encrypted assertion)
+  5. `Decrypted AES-256-GCM Assertion -> authStatus: 'Y'`
+  6. `Single-Use Reuse Check -> 400 OTP_EXPIRED`
+
+---
+
+## 5. Live AWS Multi-AZ Chaos / Failover Experiment (`chaos-monitor.js`) & Video
+
+- **Chaos Failover Video Recording:** [Google Drive Recording — Live Zone A Shutdown & Zone B Auto-Promotion](https://drive.google.com/file/d/1knZ0NuT9ByiJ9Jv9SY7KTEyB0pXB5Xma/view?usp=drive_link)
+- **Raw Outputs:** [`chaos-report-aws-alb-2026-11-15T16-17-44-526Z.json`](./chaos-report-aws-alb-2026-11-15T16-17-44-526Z.json) & [`chaos-timeline-aws-alb-2026-11-15T16-17-44-526Z.csv`](./chaos-timeline-aws-alb-2026-11-15T16-17-44-526Z.csv)
+- **Command:** `node prototype/scripts/chaos-monitor.js --url http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com --hmac-secret <SECRET> --interval-ms 500 --duration-sec 90 --tag aws-alb`
+- **Executed At:** `2026-11-15T16:17:44.524Z`
+- **Summary Metrics (`58` full dual-request ticks):**
+  - **Health Availability:** `54 / 58` (`93.1%`; `4` failed probes strictly inside the ALB unhealthy detection drain window)
+  - **Full Signed Auth (`generate` $\rightarrow$ `verify`) Success:** `54 / 58` (`93.1%`; `4` failures during Zone A cutover)
+  - **Zone Distribution:** `ap-southeast-2a: 11` (pre-outage), `ap-southeast-2b: 43` (steady-state + post-failover)
+  - **Redis Auto-Promotion Observed:** `true` (`REPLICAOF NO ONE` executed automatically on Zone B at tick `#25`)
+  - **Health Latency (`GET /health` from India $\rightarrow$ Sydney ALB):** `p50 = 313.11 ms`, `p95 = 316.94 ms`, `p99 = 703.90 ms`
+  - **Full Auth Latency (`generate` + `verify` from India $\rightarrow$ Sydney ALB):** `p50 = 616.59 ms`, `p95 = 942.97 ms`, `p99 = 4298.07 ms` (tick `#25` failover promotion lock)
+
+| Window / Ticks | UTC Timestamp | Observed Behavior |
+| :--- | :--- | :--- |
+| `#001`–`#019` | `16:16:13.702Z`–`16:16:40.202Z` | Healthy Multi-AZ round-robin between `ap-southeast-2a` (`master`) & `ap-southeast-2b` (`slave`); `auth=200 result=Y` (`~305 ms` health, `~615 ms` auth) |
+| `#020` | `16:16:41.631Z` | Zone A (`aadhaar-zone-a`) stopped in AWS EC2; `health=200` on `ap-southeast-2b`, `auth=500 INTERNAL_ERROR` on draining Zone A target |
+| `#021`–`#024` | `16:16:43.003Z`–`16:16:50.717Z` | ALB unhealthy threshold window (`2 × 5 s`, `~10.5 s` total convergence from `#020` to `#025`); `#021` `auth=200` on `ap-southeast-2b`, `#022`–`#024` `502` |
+| `#025` | `16:16:52.163Z` | ALB stops routing to Zone A; Zone B self-promotes (`role=master [PROMOTED]`), `health=200` (`314.56 ms`), `auth=200 result=Y` (`4298.07 ms`) |
+| `#026`–`#058` | `16:16:57.287Z`–`16:17:43.587Z` | `33` consecutive steady-state promoted ticks on `ap-southeast-2b` (`0` errors, `~313 ms` health, `~619 ms` auth) |
+
+- **Post-Outage Recovery Verified:** After restarting `aadhaar-zone-a` and running `docker compose -f docker-compose.az.yml restart` on `aadhaar-zone-b`, live `GET /health` confirmed `ap-southeast-2a` (`role: "master"`, `connectedSlaves: 1`, `replOffset: 140`) and `ap-southeast-2b` (`role: "slave"`, `masterLinkStatus: "up"`, `replOffset: 140`).
+
+---
+
+## 6. Live AWS Billing & Synthetic Load Scripts (`k6`)
+
+- **AWS Billing (`aadhaar-uidai-CloudComputing`, Account `511053344168`):**
+  - **Spend Limit & Controls:** `Spend limit: $20.00 / month` (`Status: Within limit`, early cost controls active, UPI AutoPay enabled, `Balance Amount due: $0.00`)
+  - **Available Promotional Credits:** `$120.00 USD`
+  - **Observed Month-to-Date Spend:** `$0.98` | **AWS Month-End Forecast (24×7 Multi-AZ run):** `$14.26 / month`
+- **Synthetic `k6` Load Suite (`prototype/k6/t1_baseline.js`–`t6_replay.js`):** Scripted and verified for syntax against [`prototype/k6/run_benchmarks.sh`](../k6/run_benchmarks.sh) for optional high-VU synthetic load testing inside VPC (`50–500 VUs`); held out of public internet saturation tests against shared institutional gateways and `t3.micro` burstable CPU credits.
