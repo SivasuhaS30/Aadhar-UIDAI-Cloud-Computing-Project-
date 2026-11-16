@@ -1,256 +1,173 @@
 # Aadhaar (UIDAI) — Cloud & Data-Center Architecture at National Scale
 
-**Course:** IT457 – Cloud Computing  
-**Theme:** Government & Public Digital Infrastructure  
-**Project:** Aadhaar (UIDAI) Biometric ID System, Cloud & Data-Center Architecture  
+**Course:** IT457 – Cloud Computing
+**Theme:** Government & Public Digital Infrastructure
 **Group:** 44
 
 ---
 
 ## 🌐 Live AWS Deployment & Failover Demonstration
 
-This project includes a live multi-AZ deployment of a scaled-down Aadhaar-inspired authentication service on AWS.
+A live multi-AZ deployment of a scaled-down Aadhaar-inspired authentication service on AWS.
 
 | Resource | Link |
-|---|---|
-| **Live Application Dashboard** | [Open Application](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/) |
-| **Service Health Check** | [Check Health Endpoint](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/health) |
-| **Multi-AZ Chaos/Failover Video** | [Watch Failover Demonstration](https://drive.google.com/file/d/1knZ0NuT9ByiJ9Jv9SY7KTEyB0pXB5Xma/view?usp=drive_link) |
-| **Empirical Test Results** | [View Test Results](./prototype/results/TEST_RESULTS.md) |
-
-### AWS Deployment Configuration
+| :--- | :--- |
+| Live Application Dashboard | [Open Application](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/) |
+| Service Health Check | [Check Health Endpoint](http://aadhaar-alb-1253686032.ap-southeast-2.elb.amazonaws.com/health) |
+| Multi-AZ Chaos/Failover Video | [Watch Failover Demonstration](https://drive.google.com/file/d/1knZ0NuT9ByiJ9Jv9SY7KTEyB0pXB5Xma/view?usp=drive_link) |
+| Empirical Test Results | [View Test Results](./prototype/results/TEST_RESULTS.md) |
 
 | Component | Configuration |
-|---|---|
+| :--- | :--- |
 | Cloud Provider | Amazon Web Services (AWS) |
 | Region | Sydney (`ap-southeast-2`) |
 | Availability Zones | `ap-southeast-2a`, `ap-southeast-2b` |
-| Load Balancer | Application Load Balancer (ALB) |
-| ALB Name | `aadhaar-alb` |
-| Application | Node.js 20 / Express 4 |
-| Cache Layer | Redis 7 |
-| Deployment Model | Multi-AZ |
+| Compute | One EC2 `t3.micro` instance per Availability Zone |
+| Load Balancer | Application Load Balancer `aadhaar-alb` (health check `GET /health` every 5 s) |
+| Application | Node.js 20 / Express 4 (Docker, port 80 → 3000) |
+| Cache Layer | Redis 7 — primary in Zone A, replica in Zone B |
 
 > **Note:** The live endpoint uses HTTP. The repository also includes an optional TLS configuration for HTTPS experiments.
+>
+> **Note:** [`prototype/DEPLOYMENT.md`](./prototype/DEPLOYMENT.md) uses `ap-south-1` (Mumbai) as its example region. The live deployment runs in `ap-southeast-2` (Sydney).
 
 ---
 
 ## 📌 Project Overview
 
-Aadhaar is one of the world's largest biometric digital identity systems, covering more than 1.4 billion residents. Its architecture presents important challenges in distributed computing, large-scale data management, security, availability and real-time authentication.
+Aadhaar is one of the world's largest biometric digital identity systems, covering more than 1.4 billion residents. This project studies the cloud and data-center architecture of the Unique Identification Authority of India (UIDAI) and covers four areas:
 
-This project studies the cloud and data-center architecture of the Unique Identification Authority of India (UIDAI), with particular attention to the infrastructure and engineering principles required to support a national-scale identity platform.
+1. **1:N Biometric Deduplication:** Parallel biometric matching to keep identities unique during enrollment.
+2. **1:1 Real-Time Authentication:** Low-latency identity verification returning a Yes/No result.
+3. **Distributed Infrastructure:** Active-active data centers, distributed storage, fault tolerance and security.
+4. **Hands-On Implementation:** A scaled-down, highly available authentication microservice with load balancing, distributed caching and automated failover.
 
-The project explores four major areas:
-
-1. **1:N Biometric Deduplication — Enrollment Pipeline:** Computationally intensive biometric matching to identify duplicate identities and maintain uniqueness during enrollment.
-2. **1:1 Real-Time Authentication:** Verification of an individual's identity through authentication requests, with a focus on secure responses and low-latency processing.
-3. **Distributed Infrastructure:** Active-active data-center architecture, distributed storage, horizontal scalability, fault tolerance and security mechanisms.
-4. **Hands-On Implementation:** Development and benchmarking of a scaled-down, high-availability authentication microservice with load balancing, distributed caching and automated failover.
-
-The practical implementation focuses on the **1:1 OTP authentication workflow**. The 1:N biometric deduplication pipeline is studied as part of the architectural case study and is not implemented in the prototype.
+The implementation covers the **1:1 OTP authentication workflow** only. The 1:N deduplication pipeline is studied in the case study but **not** implemented.
 
 ---
 
 ## 🏗️ System Architecture
 
-The project examines the distributed infrastructure principles behind Aadhaar and implements a simplified high-availability architecture inspired by those principles.
+### Reference Architecture — UIDAI
 
-### 1. Reference Architecture — UIDAI
+- Primary and Disaster Recovery data centers for service continuity.
+- Distributed storage (HDFS, HBase, Cassandra, MySQL).
+- Parallel biometric deduplication for enrollment.
+- Real-time 1:1 authentication.
+- Registered Devices, public-key cryptography and HSMs.
 
-The case study explores the following architectural components:
+### Implemented Prototype
 
-- **Primary and Disaster Recovery Data Centers:** Distributed infrastructure designed to support service continuity.
-- **Distributed Storage:** Technologies such as HDFS, HBase, Cassandra and MySQL, as discussed in the reference architecture.
-- **Biometric Deduplication:** Parallel biometric matching for enrollment and identity uniqueness.
-- **Real-Time Authentication:** A 1:1 authentication workflow that returns a Yes/No response.
-- **Security Infrastructure:** Registered Devices, public-key cryptography and Hardware Security Modules (HSMs).
+<img width="590" height="572" alt="image" src="https://github.com/user-attachments/assets/15748812-c5d6-475d-b14a-d3fefdc8ffe2" />
 
-### 2. Implemented Prototype Architecture
+*Figure 1. Application Load Balancer, two Availability Zones (each with an auth service and Redis) and Redis primary → replica replication.*
 
-The practical prototype demonstrates a simplified two-zone authentication system.
+- **Application Load Balancer:** Distributes requests between healthy instances.
+- **Stateless Auth Services:** Two Node.js/Express containers, one per Availability Zone.
+- **Redis Primary and Replica:** Stores temporary OTP and replay-protection state. Both zones write to the Zone A primary over private VPC addresses; the Zone B replica replicates from it.
+- **Health Checks:** `GET /health` lets the ALB detect unhealthy targets.
+- **Automated Redis Promotion:** When a write finds the primary unreachable, the replica is promoted (`REPLICAOF NO ONE`) and the write is retried.
+- **Network Isolation:** Port 80 is open only from the ALB security group; port 6379 only between the two instances.
 
-<img width="1102" height="615" alt="image" src="https://github.com/user-attachments/assets/4339c1b6-d6e1-43d7-aa95-9dc84ea5506f" />
+### API Endpoints
 
+| Method | Path | Purpose |
+| :--- | :--- | :--- |
+| `GET` | `/`, `/dashboard` | Live telemetry dashboard |
+| `GET` | `/health` | Region, Redis and replication status (used by the ALB) |
+| `POST` | `/auth/otp/generate` | Generate an OTP for a UID |
+| `POST` | `/auth/verify` | Verify UID + transaction ID + OTP |
 
-<!-- Insert your AWS Multi-AZ architecture diagram here. -->
-<!-- Suggested file: docs/images/aws-multi-az-architecture.png -->
+### OTP Authentication Workflow
 
-*Figure 1. Implemented high-availability architecture showing the Application Load Balancer, two Availability Zones, authentication services and Redis primary/replica configuration.*
+<img width="623" height="513" alt="image" src="https://github.com/user-attachments/assets/4ea4e6da-eac3-4183-8e9a-5fea5cb12a43" />
 
-The prototype contains:
+*Figure 2. Request flow showing HMAC verification, replay protection, OTP consumption, hash comparison and encrypted assertion.*
 
-- **Application Load Balancer:** Distributes incoming requests between healthy application instances.
-- **Stateless Authentication Services:** Two Node.js/Express instances running the same application.
-- **Redis Primary and Replica:** Stores temporary OTP and replay-protection state, with replication between Redis instances.
-- **Health Checks:** Allows the load balancer to identify unhealthy application targets.
-- **Automated Redis Promotion:** Promotes the secondary Redis replica when a write operation detects failure of the primary connection.
+**Generate (`POST /auth/otp/generate`)**
 
-### 3. OTP Authentication Workflow
+1. The client signs the request with HMAC-SHA256 over `timestamp.rawBody` (`x-timestamp`, `x-signature` headers).
+2. The server validates the signature and timestamp (60 s window).
+3. A Redis replay lock (`SET NX EX 60`) rejects duplicate signed requests.
+4. The UID is checked with the Verhoeff checksum.
+5. A transaction ID and 6-digit OTP are generated; SHA-256 hashes of the UID and OTP are stored in Redis for 300 s.
+6. The service returns the transaction ID and `OTP_SENT`. SMS is simulated; demo mode also returns the OTP.
 
-The implemented authentication workflow consists of two main API operations:
+**Verify (`POST /auth/verify`)**
 
-- `POST /generate-otp`
-- `POST /verify-otp`
+1. The client sends the UID, transaction ID and OTP in a newly signed request.
+2. Signature, timestamp and replay checks run again.
+3. The OTP record is consumed with Redis `GETDEL`. A missing, expired or used record returns 400 `OTP_EXPIRED`.
+4. Submitted hashes are compared with the stored hashes.
+5. A match returns `authStatus: "Y"`; a mismatch returns HTTP 401 with a signed `"N"` assertion.
+6. The assertion is HMAC-signed and AES-256-GCM encrypted. An audit event is logged asynchronously.
 
-<img width="1107" height="616" alt="image" src="https://github.com/user-attachments/assets/0de10228-0986-460c-ad05-d54eb1dcae31" />
-
-<!-- Insert your OTP authentication sequence diagram here. -->
-<!-- Suggested file: docs/images/otp-authentication-workflow.png -->
-
-*Figure 2. End-to-end OTP authentication workflow showing HMAC verification, replay protection, Redis storage, OTP verification and encrypted authentication assertion generation.*
-
-#### Request Generation
-
-1. The client submits a UID.
-2. The client generates an HMAC-SHA256 signature using a shared secret, timestamp and raw request body.
-3. The server validates the timestamp and signature.
-4. Redis replay protection prevents reuse of the same signed request.
-5. The UID is validated using the Verhoeff checksum algorithm.
-6. A unique transaction ID and six-digit OTP are generated.
-7. The UID and OTP are hashed using SHA-256 and stored in Redis with a 300-second expiry.
-8. The service returns the transaction ID and OTP-generation status.
-
-#### OTP Verification
-
-1. The client submits the UID, transaction ID and OTP in a newly signed request.
-2. The server validates the request signature and replay protection.
-3. The application retrieves the OTP record using Redis `GETDEL`.
-4. The submitted UID and OTP hashes are compared with the stored hashes.
-5. A successful authentication assertion is generated.
-6. The assertion is signed using HMAC and encrypted using AES-256-GCM.
-7. The service returns the authentication result.
-
-#### Security Mechanisms
+**Security Mechanisms**
 
 | Mechanism | Purpose |
-|---|---|
+| :--- | :--- |
 | Verhoeff Checksum | Validates UID checksum |
-| HMAC-SHA256 | Request integrity and authentication |
+| HMAC-SHA256 | Request integrity; signs the response assertion |
 | Timestamp Validation | Rejects stale requests |
 | Redis Replay Protection | Prevents duplicate signed requests |
-| SHA-256 | Avoids storing raw UID and OTP values |
-| Redis TTL | Automatically expires temporary OTP records |
-| Redis GETDEL | Ensures OTP records are consumed atomically |
-| AES-256-GCM | Encrypts and authenticates the assertion |
-| Random IV | Provides fresh encryption randomness |
+| SHA-256 | Avoids storing raw UID and OTP |
+| Redis TTL / `GETDEL` | Expires OTPs and ensures single use |
+| AES-256-GCM + random IV | Encrypts and authenticates the assertion |
 
 ---
 
 ## ☁️ High Availability & Disaster Recovery
 
-High availability is the central implementation objective of this project.
+**Traffic failover:** The ALB health check marks a failed target unhealthy and sends requests to the remaining healthy zone.
 
-The prototype uses two application zones with Redis replication to demonstrate service continuity when the primary zone becomes unavailable.
+**Redis state failover:** Traffic failover alone is not enough because the service depends on Redis state. When a write fails against the primary, the Zone B replica is promoted with `REPLICAOF NO ONE` and the write is retried, so OTP and replay-protection writes continue.
 
-### Traffic Failover
+**Chaos experiment:**
 
-The Application Load Balancer periodically checks the health of registered application targets.
+1. Both zones serve requests while `scripts/chaos-monitor.js` sends continuous authentication requests.
+2. The Zone A EC2 instance (application and Redis) is stopped.
+3. The ALB detects the unhealthy target and redirects traffic to Zone B.
+4. Zone B promotes its Redis replica on the first failed write.
+5. Authentication requests resume through the surviving zone.
 
-When an application target becomes unhealthy:
-
-1. The ALB detects failed health checks.
-2. The unhealthy target is removed from normal traffic routing.
-3. Requests are directed towards the remaining healthy target.
-
-### Redis State Failover
-
-Traffic failover alone is not sufficient because the authentication service also depends on temporary state stored in Redis.
-
-The prototype implements a Redis promotion mechanism:
-
-1. The secondary zone maintains a Redis replica.
-2. A write operation fails when the primary Redis connection becomes unavailable.
-3. The application detects the connection failure.
-4. The secondary replica is promoted using `REPLICAOF NO ONE`.
-5. The failed write is retried against the promoted Redis instance.
-
-This allows the secondary authentication service to continue performing OTP and replay-protection writes after the primary Redis instance becomes unavailable.
-
-### Chaos / Failover Experiment
-
-
-
-The documented AWS chaos experiment follows this sequence:
-
-1. Both Availability Zones initially serve requests.
-2. Continuous authentication requests are generated.
-3. The primary zone's application and Redis instance are stopped.
-4. The ALB detects the unhealthy target.
-5. Traffic is redirected to the secondary zone.
-6. The secondary Redis replica is promoted to primary when a write encounters the failed primary.
-7. Authentication requests resume through the surviving zone.
-
-> **Important:** Redis replication is asynchronous. A write that has not replicated before the primary failure may not be available in the secondary zone. Therefore, the prototype demonstrates automated recovery, but does not guarantee zero downtime or zero data loss.
+> **Important:** Redis replication is asynchronous, so a write not yet replicated before the failure may be lost. The prototype demonstrates automated recovery, not zero downtime or zero data loss.
 
 ---
 
 ## 🧪 Experimental Evaluation & Testing
 
-The project evaluates application correctness, security, performance and high availability through local experiments and AWS deployment tests.
+- **Unit and integration tests:** 12/12 passed (Node.js built-in test runner). Covers authentication logic, checksum, OTP handling and replay protection.
+- **Local benchmark:** 1174.7 requests/second (loopback).
+- **Local dual-zone simulation:** Docker Compose runs two auth services and two Redis instances behind NGINX.
+- **AWS Multi-AZ experiments:** ALB health transitions, traffic redirection, Redis promotion and latency.
 
-### 1. Unit and Integration Testing
-
-- Reported result: **12/12 tests passed**.
-- Validates authentication logic, checksum verification, OTP handling, replay protection and related application behaviour.
-- Uses the Node.js built-in test runner and assertions.
-
-### 2. Local Performance Benchmark
-
-- Reported benchmark: **1174.7 requests/second**.
-- Conducted using the local loopback benchmark.
-- Measures the request-processing performance of the local implementation.
-
-### 3. Local Dual-Zone Simulation
-
-- Uses Docker Compose to run the authentication services and Redis instances.
-- NGINX distributes incoming requests between the two application instances.
-- Redis replication is used to simulate shared authentication state across the two zones.
-
-### 4. Load and Failover Testing
-
-The repository includes Grafana k6 scripts covering six experimental scenarios:
+**k6 load and failover scenarios**
 
 | Scenario | Experiment | Objective |
-|---|---|---|
-| T1 | Baseline | Establish normal system performance |
-| T2 | Scaling | Observe behaviour under increasing load |
-| T3 | Saturation | Identify performance limits |
-| T4 | Failover | Evaluate service continuity during failure |
-| T5 | TTL Expiry | Verify OTP expiration |
-| T6 | Replay Protection | Verify duplicate signed-request rejection |
+| :--- | :--- | :--- |
+| T1 | Baseline | Normal system performance |
+| T2 | Scaling | Behaviour under increasing load |
+| T3 | Saturation | Performance limits |
+| T4 | Failover | Continuity during failure |
+| T5 | TTL Expiry | OTP expiration |
+| T6 | Replay Protection | Duplicate signed-request rejection |
 
-The k6 scripts are part of the experimental suite; individual execution status and measured results are documented in the test-results files.
-
-### 5. AWS Multi-AZ Experiments
-
-The live AWS deployment is used to examine:
-
-- Application availability across two Availability Zones.
-- ALB health checks and target health transitions.
-- Traffic redirection after application failure.
-- Redis replica promotion after primary failure.
-- Authentication behaviour during and after failover.
-- Cloud deployment performance and latency.
-
-Detailed empirical measurements and experiment outputs are maintained in [`prototype/results/`](./prototype/results/).
+Detailed outputs are in [`prototype/results/`](./prototype/results).
 
 ---
 
 ## 🛠️ Technology Stack
 
 | Category | Technologies |
-|---|---|
-| Backend | Node.js 20, Express 4 |
-| Load Balancing | AWS Application Load Balancer, NGINX 1.25 |
-| Distributed Cache | Redis 7 |
-| Containerization | Docker, Docker Compose |
-| Cloud Infrastructure | AWS EC2, VPC, Availability Zones, ALB |
+| :--- | :--- |
+| Backend | Node.js 20, Express 4, ioredis |
+| Load Balancing | AWS ALB (cloud), NGINX 1.25 (local) |
+| Cache | Redis 7 |
+| Containers | Docker, Docker Compose |
+| Cloud | AWS EC2, VPC, Availability Zones, ALB, Security Groups |
 | Load Testing | Grafana k6 |
 | Security | HMAC-SHA256, SHA-256, AES-256-GCM, Verhoeff |
-| Testing | Node.js Test Runner |
-| Monitoring | Custom health endpoints, chaos-monitoring scripts |
-| Scripting | JavaScript, Shell |
+| Monitoring | Health endpoint, live dashboard, chaos-monitor scripts |
 
 ---
 
@@ -258,46 +175,22 @@ Detailed empirical measurements and experiment outputs are maintained in [`proto
 
 ```text
 .
-├── Group44.pdf
-├── Week1_Aadhaar_Case_Study_Summary.docx
+├── Group44.pdf, Week1_Aadhaar_Case_Study_Summary.docx
 ├── Group_44_Week2_Aadhaar_Report.pdf
 ├── Group_44_Week3_Results_Addon.pdf
 ├── Group_44_Week4_Final_Report.pdf
-│
-├── create_week1_docx.py
-├── PROJECT_HANDBOOK.md
-├── PROJECT_GUIDE.md
-├── Project_Instructions.md
-├── IT457_Project_ Doc.pdf
-├── IT457 Project Implementation Guide.pdf
-├── project_title.txt
-│
-├── papers/
-│   ├── UIDAI_Aadhaar_Technology_Architecture_2014.pdf
-│   ├── CAG_Report_24_of_2021_UIDAI_Performance_Audit.pdf
-│   ├── UIDAI_Role_of_Biometric_Technology_in_Aadhaar_Enrolment_2012.pdf
-│   └── Tiwari_et_al_Indias_Aadhaar_Biometric_ID_Structure_Security_Vulnerabilities.pdf
-│
+├── PROJECT_HANDBOOK.md, PROJECT_GUIDE.md, Project_Instructions.md
+├── papers/                  # Primary research papers
 └── prototype/
-    ├── auth-service/
-    │   └── Stateless Node.js / Express authentication service
-    │
-    ├── nginx/
-    │   └── NGINX load balancer and optional TLS configuration
-    │
-    ├── k6/
-    │   └── Grafana k6 load and failover scenarios (T1–T6)
-    │
-    ├── scripts/
-    │   └── Deployment, smoke testing, chaos monitoring and local simulations
-    │
-    ├── results/
-    │   └── Benchmark reports, test outputs and chaos timelines
-    │
-    ├── docker-compose.yml
-    ├── docker-compose.az.yml
-    ├── docker-compose.prod.yml
-    ├── docker-compose.tls.yml
+    ├── auth-service/        # Stateless Express auth service
+    ├── nginx/               # Local load balancer and optional TLS
+    ├── k6/                  # Load and failover scenarios (T1–T6)
+    ├── scripts/             # Deploy, smoke test, chaos monitor, local sims
+    ├── results/             # Benchmarks, test outputs, chaos timelines
+    ├── docker-compose.yml       # Local dual-zone simulation
+    ├── docker-compose.az.yml    # Per-AZ EC2 stack behind the ALB
+    ├── docker-compose.prod.yml  # Production resource/logging override
+    ├── docker-compose.tls.yml   # Optional HTTPS override
     └── DEPLOYMENT.md
 ```
 
@@ -305,116 +198,54 @@ Detailed empirical measurements and experiment outputs are maintained in [`proto
 
 ## 🚀 Running the Local Prototype
 
-The local prototype can be used to explore the authentication workflow and simulate the dual-zone architecture.
-
-### Prerequisites
-
-- Docker
-- Docker Compose
-- Node.js 20 or later
-
-### Start the Local Environment
-
-From the prototype directory:
+Requires Docker, Docker Compose and Node.js 20+.
 
 ```bash
 cd prototype
-docker compose up --build
-```
-
-This starts the local dual-zone simulation using the configured Docker Compose services.
-
-### Access the Application
-
-Open:
-
-```text
-http://localhost/
-```
-
-### Check Service Health
-
-```text
-http://localhost/health
-```
-
-### Stop the Local Environment
-
-```bash
+docker compose up --build                       # NGINX, two auth services, two Redis
+node scripts/test-client.js http://localhost    # signed smoke test
 docker compose down
 ```
 
-For the AWS deployment, per-AZ deployment and TLS configuration, refer to the deployment guide:
-
-[`prototype/DEPLOYMENT.md`](./prototype/DEPLOYMENT.md)
+Open `http://localhost/` for the dashboard or `http://localhost/health` for service status. For AWS and TLS deployment, see [`prototype/DEPLOYMENT.md`](./prototype/DEPLOYMENT.md).
 
 ---
 
 ## 📚 Primary Research & References
 
-The case study is supported by the following archived research and technical documents in [`papers/`](./papers):
+Archived in [`papers/`](./papers):
 
-1. **UIDAI Technology Architecture Whitepaper (2014):** Architectural principles, distributed storage and API design.
-2. **CAG Performance Audit Report No. 24 of 2021:** Infrastructure, expenditure, service-level compliance and operational governance.
-3. **UIDAI Biometrics Committee Report (2012):** Biometric modalities and the role of biometric technology in Aadhaar enrollment.
-4. **Tiwari et al. — India's Aadhaar Biometric ID: Structure, Security & Vulnerabilities:** Academic analysis of CIDR, Registered Devices and security architecture.
-
-These documents provide the research foundation for understanding the architecture and designing the scaled-down practical implementation.
+1. **UIDAI Technology Architecture Whitepaper (2014)**
+2. **CAG Performance Audit Report No. 24 of 2021**
+3. **UIDAI Biometrics Committee Report (2012)**
+4. **Tiwari et al. — India's Aadhaar Biometric ID: Structure, Security & Vulnerabilities**
 
 ---
 
 ## ⚠️ Scope & Limitations
 
-This project is an academic case study and scaled-down implementation inspired by UIDAI's distributed architecture. It is not a production implementation of Aadhaar.
+This is an academic, scaled-down implementation inspired by UIDAI's architecture, **not** a production Aadhaar system.
 
-The following limitations apply:
-
-- The prototype implements a simplified 1:1 OTP authentication workflow.
-- Production biometric authentication and 1:N biometric deduplication are outside the implementation scope.
-- SMS delivery is simulated in demo mode.
-- HMAC and AES-GCM demonstrate application-level cryptographic protection and do not replace production HSM-backed key management.
-- The prototype uses Redis replication, which is asynchronous and may result in loss of recent writes during failure.
-- The audit logger uses an asynchronous application-level mechanism rather than a durable production message queue.
-- The prototype demonstrates high-availability concepts at a smaller scale and does not reproduce UIDAI's complete production infrastructure.
+- Only the 1:1 OTP workflow is implemented; biometrics and 1:N deduplication are out of scope.
+- SMS delivery is simulated.
+- HMAC and AES-GCM do not replace HSM-backed key management.
+- Redis replication is asynchronous and may lose recent writes during failure.
+- The audit logger is application-level (JSON log lines), not a durable message queue.
 
 ---
 
 ## 🗓️ Project Milestones
 
 | Week | Milestone | Status |
-|---|---|---|
-| Week 1 | Literature survey, architecture research and one-page milestone summary | Completed |
-| Week 2 | Detailed architecture analysis, component diagrams and implementation blueprint | Completed |
-| Week 3 | Authentication microservice, local experiments, benchmark and AWS empirical evaluation | Completed |
-| Week 4 | Live AWS Multi-AZ deployment, chaos/failover demonstration and consolidated report | Completed |
+| :--- | :--- | :--- |
+| Week 1 | [Literature survey and one-page summary](./Group44.pdf) | Completed |
+| Week 2 | [Architecture analysis and blueprint](./Group_44_Week2_Aadhaar_Report.pdf) | Completed |
+| Week 3 | [Microservice, benchmarks and results add-on](./Group_44_Week3_Results_Addon.pdf) | Completed |
+| Week 4 | [Live AWS deployment, failover demo and final report](./Group_44_Week4_Final_Report.pdf) | Completed |
 | Week 5 | Project viva and final defense | Upcoming |
-
-### Submission Documents
-
-- [Week 1 Milestone — Group44.pdf](./Group44.pdf)
-- [Week 2 Architecture Report](./Group_44_Week2_Aadhaar_Report.pdf)
-- [Week 3 Experimental Results Add-on](./Group_44_Week3_Results_Addon.pdf)
-- [Week 4 Final Consolidated Report](./Group_44_Week4_Final_Report.pdf)
 
 ---
 
 ## 🎯 Project Objective
 
-The central objective of this project is to understand how distributed cloud and data-center architectures support large-scale identity systems, and to demonstrate key high-availability principles through a practical authentication service.
-
-The implementation brings together:
-
-- Secure request authentication.
-- Distributed caching and state replication.
-- Load balancing across multiple application instances.
-- Health monitoring and failure detection.
-- Automated failover and recovery.
-- Performance and reliability evaluation.
-
-**The project connects the architectural study of a national-scale digital identity platform with a practical demonstration of distributed systems, cloud infrastructure and high availability.**
-
----
-
-**Course:** IT457 – Cloud Computing  
-**Project Theme:** Government & Public Digital Infrastructure  
-**Group:** 44
+To understand how distributed cloud and data-center architectures support large-scale identity systems, and to demonstrate high-availability principles — secure request authentication, distributed caching, load balancing, health monitoring and automated failover — through a practical authentication service.
